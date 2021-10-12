@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Generate Hitmap</title>
+        <style>
+            * {
+                font-family: monospace;
+            }
+            body {
+                background:#ddd;
+            }
+
+            .field {
+                margin:5px;
+            }
+
+            .ilb {
+                display:inline-block;
+                vertical-align: top;
+                padding: 5px;
+                margin: 5px;
+                border: solid 1px;
+            }
+
+            .ilb h3 {
+                margin: 0 0 10px 0;
+            }
+
+            #dl,#dl2 {
+                padding:10px;
+                border:solid 1px;
+                text-decoration: none;
+                background-color: #0097FF;
+                color:#333;
+                display: inline-block;
+            }
+            #dl:hover,#dl2:hover {
+                background-color: #1BE0B9;
+            }
+            #dl:active,#dl2:active {
+                background-color: #FF5B82;
+            }
+
+            .dl {
+                margin:0px 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <H1>Hitmap generator</H1>
+        <form onsubmit="return false;">
+            <hr/>
+            <div class="field">
+                <span>Hitmap Size (%) : </span><input id="mapsize" value="25" onchange="cacheSize(),generateHitmap()" style="width:50px"/>
+            </div>
+            <div class="field">
+                <input type="file" id="imagefile" onchange="generateHitmap()"/>
+            </div>
+            <hr/>
+            <div class="dl" style="display:none;">
+                <a id="dl" href="#" download="result.js">Save</a>
+            </div>
+            <div id="working" style="display:inline-block">
+
+            </div>
+            <div class="dl" style="display:none;">
+                <a id="dl2" href="#" download="result.js">Save</a>
+            </div>
+        </form>
+        <script>
+            let working = document.getElementById('working');
+            let dl = document.getElementById('dl');
+            let dl2 = document.getElementById('dl2');
+            let dls = document.getElementsByClassName('dl');
+            let imagefile = document.getElementById('imagefile');
+            let mapsize = document.getElementById('mapsize');
+
+            let _size = localStorage.getItem('size');
+            if(_size!=undefined){
+                mapsize.value = _size;
+            }
+
+            function cacheSize(){
+                console.log('cacheSize '+mapsize.value+'%');
+                localStorage.setItem('size',mapsize.value);
+            }
+
+            function generateHitmap(){
+                
+                working.innerHTML = '';
+
+                let files = imagefile.files;
+                if(files.length==0) return;
+
+                let name = encodeURI(imagefile.files[0].name.split('.')[0])+'_hitmap';
+
+                let scale = mapsize.value/100;
+
+                if (FileReader && files && files.length) {
+                    var fr = new FileReader();
+                    fr.onload = function () {
+
+                        let src = fr.result;
+
+                        let img = new Image();
+
+                        img.onload = function(){
+
+                            let w = Math.round(img.width*scale);
+                            let h = Math.round(img.height*scale);
+                        
+                            let original = document.createElement('div');
+                            original.id='original';
+                            original.className = 'ilb';
+                            original.innerHTML='<h3>Original ('+img.width+' x '+img.height+')</h3>';
+                            working.appendChild(original);
+                            original.appendChild(img);
+
+
+                            let canvas = document.createElement('canvas');
+                            canvas.width = w;
+                            canvas.height = h;
+                            let ctx = canvas.getContext('2d');
+                            ctx.drawImage(img,0,0,w,h);
+                            working.appendChild(canvas);
+
+                            let scaled = document.createElement('div');
+                            scaled.id='scaled';
+                            scaled.className = 'ilb';
+                            scaled.innerHTML='<h3>Scaled '+(scale*100)+'% ('+w+' x '+h+')</h3>'
+                            working.appendChild(scaled);
+                            scaled.appendChild(canvas);
+
+                            let imagedata = ctx.getImageData(0,0,w,h);
+                            console.log(imagedata);
+                            let arr = [];
+                            let n = 0;
+                            for(let j = 0; j < imagedata.height; j++){
+                                for(let i = 0; i < imagedata.width; i++){
+                                    let c = imagedata.data[n+3]>0?255:0;
+                                    imagedata.data[n] = c;
+                                    imagedata.data[n+1] = c;
+                                    imagedata.data[n+2] = c;
+                                    imagedata.data[n+3] = 255;
+                                    arr.push(imagedata.data[n]>0?1:0);
+                                    n+=4;
+                                }
+                            }
+
+                            let canvas2 = document.createElement('canvas');
+                            canvas2.width = w;
+                            canvas2.height = h;
+
+                            let ctx2 = canvas2.getContext('2d');
+                            ctx2.putImageData(imagedata,0,0);
+                            working.appendChild(canvas2);
+
+                            let hitmap = document.createElement('div');
+                            hitmap.id='hitmap';
+                            hitmap.className = 'ilb';
+                            hitmap.innerHTML='<h3>Hitmap '+(scale*100)+'% ('+w+' x '+h+')</h3>'
+                            working.appendChild(hitmap);
+                            hitmap.appendChild(canvas2);
+
+                            let data = 'export const '+name+' = '+JSON.stringify([w,h,arr.join('')])+';';
+                            //console.log(data);
+
+                            let encodedData = encodeURI(data);
+                            let len = encodedData.length;
+                            let lenStr = len.toString();
+                            if(len > 1024*1024){
+                                lenStr = Math.ceil(len/(1024*1024))+'MB';
+                            }
+                            else if(len > 1024) {
+                                lenStr = Math.ceil(len/1024)+'kB';
+                            }
+                            console.log(encodedData.length);
+
+                            let href='data:application/octet-stream,'+encodedData;
+
+                            dl.setAttribute('href',href);
+                            dl.setAttribute('download',name+'.js');
+                            dl.innerText = 'Save ('+name+'.js, '+lenStr+')';
+                            
+                            dl2.setAttribute('href',href);
+                            dl2.setAttribute('download',name+'.js');
+                            dl2.innerText = 'Save ('+name+'.js, '+lenStr+')';
+
+                            dls[0].setAttribute('style','display:block;');
+                            dls[1].setAttribute('style','display:block;');
+                        }
+                        img.src = src;
+                
+                    }
+                    fr.readAsDataURL(files[0]);
+                }
+            }
+        </script>
+    </body>
+</html>
