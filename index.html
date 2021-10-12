@@ -47,11 +47,12 @@
         </style>
     </head>
     <body>
-        <H1>Hitmap generator</H1>
+        <H1>Hitmap generator<small style="color:#FF5B82">(WIP)</small></H1>
+        <p>by <a href="https://www.instagram.com/keeator/" target="_blank">keeator</a></p>
         <form onsubmit="return false;">
             <hr/>
             <div class="field">
-                <span>Hitmap Size (%) : </span><input id="mapsize" value="25" onchange="cacheSize(),generateHitmap()" style="width:50px"/>
+                <span>Hitmap Size(%) : </span><input id="mapsize" value="25" onchange="cacheSize(),generateHitmap()" style="width:50px"/>
             </div>
             <div class="field">
                 <input type="file" id="imagefile" onchange="generateHitmap()"/>
